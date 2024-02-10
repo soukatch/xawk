@@ -1,19 +1,22 @@
 #pragma once
 
+#include "code.h"
 #include "lexer.h"
+
+#include <utility>
+#include <vector>
 
 class parser final {
   lexer lexer_;
   token next_{};
 
+  code::code_block code_{};
+  code::const_pool consts_{};
+
   token next() { return std::exchange(next_, lexer_()); }
 
   token peek() const { return next_; }
 
-public:
-  parser(std::string_view filename) : lexer_{filename} {}
-
-private:
   static constexpr int lbp(token_type type) noexcept {
     switch (type) {
       using enum token_type;
@@ -30,20 +33,21 @@ private:
 
   void nud(token t) {
     switch (t.type_) {
+      using enum token_type;
     default:
       std::cerr << "unkown nud " << t.type_ << std::endl;
       break;
-    case token_type::number__:
-      std::cout << t.lexeme_ << std::endl;
+    case number__:
+      code::gen_const(code_, consts_, std::stod(t.lexeme_));
       break;
-    case token_type::l_paren__:
+    case l_paren__:
       expr();
-      if (next().type_ != token_type::r_paren__)
+      if (next().type_ != r_paren__)
         std::cerr << "expected )" << std::endl;
       break;
-    case token_type::minus__:
-      expr(1);
-      std::cout << "neg" << std::endl;
+    case minus__:
+      expr(2);
+      code::gen_op(code_, code::op::neg__);
       break;
     }
   }
@@ -55,20 +59,20 @@ private:
       std::cerr << "unknown binary " << type << std::endl;
       break;
     case plus__:
-      expr(1);
-      std::cout << "plus" << std::endl;
+      expr(lbp(plus__));
+      code::gen_op(code_, code::op::add__);
       break;
     case minus__:
-      expr(1);
-      std::cout << "minus" << std::endl;
+      expr(lbp(plus__));
+      code::gen_op(code_, code::op::sub__);
       break;
     case star__:
-      expr(2);
-      std::cout << "star" << std::endl;
+      expr(lbp(star__));
+      code::gen_op(code_, code::op::mult__);
       break;
     case slash__:
-      expr(2);
-      std::cout << "slash" << std::endl;
+      expr(lbp(slash__));
+      code::gen_op(code_, code::op::div__);
       break;
     }
   }
@@ -82,8 +86,11 @@ private:
   }
 
 public:
-  void parse() {
+  parser(std::string_view filename) : lexer_{filename} {}
+
+  std::pair<code::code_block, code::const_pool> parse() {
     next_ = lexer_();
     expr();
+    return {code_, consts_};
   }
 };

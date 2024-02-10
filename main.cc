@@ -1,6 +1,4 @@
 #include "parser.h"
+#include "vm.h"
 
-int main() {
-  parser p{"main.xawk"};
-  p.parse();
-}
+int main() { vm{parser{"main.xawk"}.parse()}(); }
