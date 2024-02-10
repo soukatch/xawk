@@ -5,9 +5,9 @@
 #include <string>
 
 struct token final {
-  const token_type type_{};
-  const std::string lexeme_{};
-  const int line_{};
+  token_type type_{};
+  std::string lexeme_{};
+  int line_{};
 };
 
 std::ostream &operator<<(std::ostream &os, const token &t) {
