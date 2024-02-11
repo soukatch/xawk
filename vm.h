@@ -9,16 +9,13 @@ class vm final {
   code_gen::code_block code_{};
   code_gen::const_pool consts_{};
   std::vector<code_gen::value> stack_{};
+  code_gen::var_map globals_{};
 
 public:
   vm(std::pair<code_gen::code_block, code_gen::const_pool> data)
       : code_{data.first}, consts_{data.second} {}
 
   void operator()() {
-    auto to_byte{[](code_gen::op_code o) constexpr noexcept -> uint8_t {
-      return static_cast<uint8_t>(o);
-    }};
-
     auto is_double{[](const code_gen::value &v) constexpr noexcept -> bool {
       return std::holds_alternative<double>(v);
     }};
@@ -33,6 +30,8 @@ public:
              is_string(stack_.back()) &&
                  is_string(stack_[std::size(stack_) - 2]);
     }};
+
+    using code_gen::to_byte;
 
     for (code_gen::code_block::size_type i{}; i != std::size(code_);) {
       switch (code_[i]) {
@@ -117,6 +116,32 @@ public:
         code_gen::operator<<(std::cout, stack_.back()) << std::endl;
         stack_.pop_back();
         ++i;
+        break;
+      case to_byte(pop__):
+        stack_.pop_back();
+        ++i;
+        break;
+      case to_byte(def_global__):
+        ++i;
+        if (globals_.contains(std::get<std::string>(consts_[code_[i]]))) {
+          std::cerr << std::get<std::string>(consts_[code_[i]])
+                    << " already defined." << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        globals_[std::get<std::string>(consts_[code_[i]])] = stack_.back();
+        stack_.pop_back();
+        ++i;
+        break;
+      case to_byte(load_global__):
+        ++i;
+        if (!globals_.contains(std::get<std::string>(consts_[code_[i]]))) {
+          std::cerr << "undefined identifier ";
+          code_gen::operator<<(std::cerr, consts_[code_[i]]) << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        stack_.push_back(globals_[std::get<std::string>(consts_[code_[i]])]);
+        ++i;
+        break;
       }
     }
   }

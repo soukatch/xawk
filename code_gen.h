@@ -23,10 +23,15 @@ enum op_code {
   div__,
   neg__,
   const__,
-  load__,
-  store__,
   print__,
+  pop__,
+  def_global__,
+  load_global__,
 };
+
+auto to_byte{[](code_gen::op_code o) constexpr noexcept -> uint8_t {
+  return static_cast<uint8_t>(o);
+}};
 
 std::ostream &operator<<(std::ostream &os, const value &v) {
   if (std::holds_alternative<double>(v))
