@@ -1,23 +1,31 @@
 #pragma once
 
-#include "code.h"
+#include "code_gen.h"
 #include "lexer.h"
 
-#include <utility>
-#include <vector>
-
+namespace xawk {
 class parser final {
-  lexer lexer_;
-  token next_{};
+  lexer lex_{""};
+  token curr_{};
 
-  code::code_block code_{};
-  code::const_pool consts_{};
+  code_gen::code_block cb_{};
+  code_gen::const_pool cp_{};
 
-  token next() { return std::exchange(next_, lexer_()); }
+  token peek() const noexcept { return curr_; }
 
-  token peek() const { return next_; }
+  token next() noexcept { return std::exchange(curr_, lex_()); }
 
-  static constexpr int lbp(token_type type) noexcept {
+  token expect(token_type type) noexcept {
+    if (peek().type_ != type) {
+      std::cerr << "expected: " << type << ", got: " << peek().type_
+                << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    return next();
+  }
+
+  static constexpr int lbp(token_type type) {
     switch (type) {
       using enum token_type;
     default:
@@ -35,62 +43,69 @@ class parser final {
     switch (t.type_) {
       using enum token_type;
     default:
-      std::cerr << "unkown nud " << t.type_ << std::endl;
-      break;
+      std::cerr << "unknown nud: " << t.type_ << std::endl;
+      exit(EXIT_FAILURE);
     case number__:
-      code::gen_const(code_, consts_, std::stod(t.lexeme_));
+      code_gen::gen_code2(cb_, code_gen::op_code::const__,
+                          code_gen::add_const(cp_, std::stod(t.lexeme_)));
       break;
-    case l_paren__:
-      expr();
-      if (next().type_ != r_paren__)
-        std::cerr << "expected )" << std::endl;
+    case string__:
+      code_gen::gen_code2(cb_, code_gen::op_code::const__,
+                          code_gen::add_const(cp_, t.lexeme_));
       break;
     case minus__:
       expr(2);
-      code::gen_op(code_, code::op::neg__);
+      code_gen::gen_code(cb_, code_gen::neg__);
       break;
+    case l_paren__:
+      expr();
+      expect(r_paren__);
     }
   }
 
-  void led(token_type type) {
-    switch (type) {
+  void led(token t) {
+    switch (t.type_) {
       using enum token_type;
     default:
-      std::cerr << "unknown binary " << type << std::endl;
-      break;
+      std::cerr << "unknown led: " << t.type_ << std::endl;
+      exit(EXIT_FAILURE);
     case plus__:
       expr(lbp(plus__));
-      code::gen_op(code_, code::op::add__);
+      code_gen::gen_code(cb_, code_gen::op_code::add__);
       break;
     case minus__:
-      expr(lbp(plus__));
-      code::gen_op(code_, code::op::sub__);
+      expr(lbp(minus__));
+      code_gen::gen_code(cb_, code_gen::op_code::sub__);
       break;
     case star__:
       expr(lbp(star__));
-      code::gen_op(code_, code::op::mult__);
+      code_gen::gen_code(cb_, code_gen::op_code::mult__);
       break;
     case slash__:
       expr(lbp(slash__));
-      code::gen_op(code_, code::op::div__);
-      break;
+      code_gen::gen_code(cb_, code_gen::op_code::div__);
     }
   }
 
   void expr(int rbp = 0) {
-    nud(next());
+    for (nud(next()); lbp(peek().type_) > rbp;)
+      led(next());
+  }
 
-    for (; lbp(peek().type_) > rbp;) {
-      led(next().type_);
-    }
+  void stmt() {
+    expect(token_type::print__);
+    expr();
+    expect(token_type::semi__);
+    code_gen::gen_code(cb_, code_gen::op_code::print__);
   }
 
 public:
-  parser(std::string_view filename) : lexer_{filename} {}
+  parser(std::string_view filename) : lex_{filename} {}
 
-  std::pair<code::code_block, code::const_pool> parse() {
-    next_ = lexer_();
-    expr();
-    return {code_, consts_};
+  std::pair<code_gen::code_block, code_gen::const_pool> operator()() {
+    next();
+    stmt();
+    return {cb_, cp_};
   }
 };
+} // namespace xawk

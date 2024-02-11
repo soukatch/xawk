@@ -1,26 +1,42 @@
 #pragma once
 
-#include "code.h"
+#include "code_gen.h"
 
 #include <utility>
 
+namespace xawk {
 class vm final {
-  code::code_block code_{};
-  code::const_pool consts_{};
-  std::vector<double> stack_{};
+  code_gen::code_block code_{};
+  code_gen::const_pool consts_{};
+  std::vector<code_gen::value> stack_{};
 
 public:
-  vm(std::pair<code::code_block, code::const_pool> data)
+  vm(std::pair<code_gen::code_block, code_gen::const_pool> data)
       : code_{data.first}, consts_{data.second} {}
 
   void operator()() {
-    auto to_byte{[](code::op o) constexpr noexcept -> uint8_t {
+    auto to_byte{[](code_gen::op_code o) constexpr noexcept -> uint8_t {
       return static_cast<uint8_t>(o);
     }};
 
-    for (code::code_block::size_type i{}; i != std::size(code_);) {
+    auto is_double{[](const code_gen::value &v) constexpr noexcept -> bool {
+      return std::holds_alternative<double>(v);
+    }};
+
+    auto is_string{[](const code_gen::value &v) constexpr noexcept -> bool {
+      return std::holds_alternative<std::string>(v);
+    }};
+
+    auto same_type{[&, this]() noexcept -> bool {
+      return is_double(stack_.back()) &&
+                 is_double(stack_[std::size(stack_) - 2]) ||
+             is_string(stack_.back()) &&
+                 is_string(stack_[std::size(stack_) - 2]);
+    }};
+
+    for (code_gen::code_block::size_type i{}; i != std::size(code_);) {
       switch (code_[i]) {
-        using enum code::op;
+        using enum code_gen::op_code;
       default:
         std::cerr << "unknown instruction " << code_[i] << std::endl;
         exit(EXIT_FAILURE);
@@ -29,32 +45,80 @@ public:
         i += 2;
         break;
       case to_byte(neg__):
-        stack_.back() = -stack_.back();
+        if (!std::holds_alternative<double>(stack_.back())) {
+          std::cerr << "invalid operand type for neg" << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        stack_.back() = -std::get<double>(stack_.back());
         ++i;
         break;
       case to_byte(add__):
-        stack_[std::size(stack_) - 2] += stack_.back();
+        if (!same_type()) {
+          std::cerr << "mismatch types for add" << std::endl;
+          exit(EXIT_FAILURE);
+        }
+
+        if (is_double(stack_.back())) {
+          stack_[std::size(stack_) - 2] =
+              std::get<double>(stack_[std::size(stack_) - 2]) +
+              std::get<double>(stack_.back());
+        } else if (is_string(stack_.back())) {
+          stack_[std::size(stack_) - 2] =
+              std::get<std::string>(stack_[std::size(stack_) - 2]) +
+              std::get<std::string>(stack_.back());
+        }
+
         stack_.pop_back();
         ++i;
         break;
       case to_byte(sub__):
-        stack_[std::size(stack_) - 2] -= stack_.back();
+        if (is_double(stack_.back()) &&
+            is_double(stack_[std::size(stack_) - 2])) {
+          std::cerr << "mismatch types for sub" << std::endl;
+          exit(EXIT_FAILURE);
+        }
+
+        stack_[std::size(stack_) - 2] =
+            std::get<double>(stack_[std::size(stack_) - 2]) +
+            std::get<double>(stack_.back());
+
         stack_.pop_back();
         ++i;
         break;
       case to_byte(mult__):
-        stack_[std::size(stack_) - 2] *= stack_.back();
+        if (is_double(stack_.back()) &&
+            is_double(stack_[std::size(stack_) - 2])) {
+          std::cerr << "mismatch types for mult" << std::endl;
+          exit(EXIT_FAILURE);
+        }
+
+        stack_[std::size(stack_) - 2] =
+            std::get<double>(stack_[std::size(stack_) - 2]) +
+            std::get<double>(stack_.back());
+
         stack_.pop_back();
         ++i;
         break;
       case to_byte(div__):
-        stack_[std::size(stack_) - 2] /= stack_.back();
+        if (is_double(stack_.back()) &&
+            is_double(stack_[std::size(stack_) - 2])) {
+          std::cerr << "mismatch types for div" << std::endl;
+          exit(EXIT_FAILURE);
+        }
+
+        stack_[std::size(stack_) - 2] =
+            std::get<double>(stack_[std::size(stack_) - 2]) +
+            std::get<double>(stack_.back());
+
         stack_.pop_back();
         ++i;
         break;
+      case to_byte(print__):
+        code_gen::operator<<(std::cout, stack_.back()) << std::endl;
+        stack_.pop_back();
+        ++i;
       }
     }
-
-    std::cout << (std::empty(stack_) ? 0 : stack_.front()) << std::endl;
   }
 };
+} // namespace xawk

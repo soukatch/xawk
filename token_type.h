@@ -44,6 +44,7 @@ enum struct token_type {
   for__,
   if__,
   else__,
+  print__,
   return__,
   struct__,
   iden__,
@@ -138,6 +139,8 @@ std::ostream &operator<<(std::ostream &os, token_type type) {
     return os << "if__";
   case else__:
     return os << "else__";
+  case print__:
+    return os << "print__";
   case return__:
     return os << "return__";
   case struct__:

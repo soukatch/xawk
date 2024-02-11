@@ -121,6 +121,8 @@ public:
              : std::isalpha(prev())
                  ? identifier()
                  : token{error__, "unexpected character", line_};
+    case '"':
+      return string();
     case '{':
       return make_token(l_brace__);
     case '}':
@@ -222,6 +224,8 @@ public:
       return keyword("f", if__);
     case 'e':
       return keyword("lse", else__);
+    case 'p':
+      return keyword("rint", print__);
     case 'r':
       return keyword("eturn", return__);
     case 's':
