@@ -72,8 +72,8 @@ public:
         ++i;
         break;
       case to_byte(sub__):
-        if (is_double(stack_.back()) &&
-            is_double(stack_[std::size(stack_) - 2])) {
+        if (!is_double(stack_.back()) ||
+            !is_double(stack_[std::size(stack_) - 2])) {
           std::cerr << "mismatch types for sub" << std::endl;
           exit(EXIT_FAILURE);
         }
@@ -86,8 +86,8 @@ public:
         ++i;
         break;
       case to_byte(mult__):
-        if (is_double(stack_.back()) &&
-            is_double(stack_[std::size(stack_) - 2])) {
+        if (!is_double(stack_.back()) ||
+            !is_double(stack_[std::size(stack_) - 2])) {
           std::cerr << "mismatch types for mult" << std::endl;
           exit(EXIT_FAILURE);
         }
@@ -100,8 +100,8 @@ public:
         ++i;
         break;
       case to_byte(div__):
-        if (is_double(stack_.back()) &&
-            is_double(stack_[std::size(stack_) - 2])) {
+        if (!is_double(stack_.back()) ||
+            !is_double(stack_[std::size(stack_) - 2])) {
           std::cerr << "mismatch types for div" << std::endl;
           exit(EXIT_FAILURE);
         }
