@@ -27,7 +27,7 @@ void disassemble(const code_gen::code_block &cb) {
       std::cout << "print__ " << std::endl;
       break;
     case code_gen::to_byte(code_gen::op_code::pop__):
-      std::cout << "add__ " << std::endl;
+      std::cout << "pop__ " << std::endl;
       break;
     case code_gen::to_byte(code_gen::op_code::def_global__):
       std::cout << "def_global__ " << std::to_string(cb[i++]) << std::endl;

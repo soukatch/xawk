@@ -98,17 +98,77 @@ class parser final {
   }
 
   void iden(std::string_view name, int rbp) {
-    if (match(token_type::equal__)) {
+    switch (peek().type_) {
+      using enum token_type;
+    default:
+      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                          code_gen::add_const(cp_, name.data()));
+      break;
+    case equal__:
       if (rbp != 0) {
         std::cerr << "cannot assign to rvalue" << std::endl;
         exit(EXIT_FAILURE);
       }
-      expr();
-      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
-                          code_gen::add_const(cp_, name.data()));
-    } else {
+      next();
       code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
                           code_gen::add_const(cp_, name.data()));
+      expr();
+      code_gen::gen_code(cb_, code_gen::op_code::add__);
+      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                          code_gen::add_const(cp_, name.data()));
+      break;
+    case plusequal__:
+      if (rbp != 0) {
+        std::cerr << "cannot assign to rvalue" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      next();
+      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                          code_gen::add_const(cp_, name.data()));
+      expr();
+      code_gen::gen_code(cb_, code_gen::op_code::add__);
+      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                          code_gen::add_const(cp_, name.data()));
+      break;
+    case minusequal__:
+      if (rbp != 0) {
+        std::cerr << "cannot assign to rvalue" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      next();
+      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                          code_gen::add_const(cp_, name.data()));
+      expr();
+      code_gen::gen_code(cb_, code_gen::op_code::sub__);
+      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                          code_gen::add_const(cp_, name.data()));
+      break;
+    case starequal__:
+      if (rbp != 0) {
+        std::cerr << "cannot assign to rvalue" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      next();
+      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                          code_gen::add_const(cp_, name.data()));
+      expr();
+      code_gen::gen_code(cb_, code_gen::op_code::mult__);
+      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                          code_gen::add_const(cp_, name.data()));
+      break;
+    case slashequal__:
+      if (rbp != 0) {
+        std::cerr << "cannot assign to rvalue" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      next();
+      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                          code_gen::add_const(cp_, name.data()));
+      expr();
+      code_gen::gen_code(cb_, code_gen::op_code::div__);
+      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                          code_gen::add_const(cp_, name.data()));
+      break;
     }
   }
 
@@ -121,8 +181,10 @@ class parser final {
     const auto print_stmt{match(token_type::print__)};
     expr();
     expect(token_type::semi__);
-    code_gen::gen_code(cb_, print_stmt ? code_gen::op_code::print__
-                                       : code_gen::op_code::pop__);
+    if (print_stmt)
+      code_gen::gen_code(cb_, code_gen::op_code::print__);
+    else
+      code_gen::gen_code(cb_, code_gen::op_code::pop__);
   }
 
   void var_decl() {

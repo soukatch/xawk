@@ -78,7 +78,7 @@ public:
         }
 
         stack_[std::size(stack_) - 2] =
-            std::get<double>(stack_[std::size(stack_) - 2]) +
+            std::get<double>(stack_[std::size(stack_) - 2]) -
             std::get<double>(stack_.back());
 
         stack_.pop_back();
@@ -92,7 +92,7 @@ public:
         }
 
         stack_[std::size(stack_) - 2] =
-            std::get<double>(stack_[std::size(stack_) - 2]) +
+            std::get<double>(stack_[std::size(stack_) - 2]) *
             std::get<double>(stack_.back());
 
         stack_.pop_back();
@@ -106,7 +106,7 @@ public:
         }
 
         stack_[std::size(stack_) - 2] =
-            std::get<double>(stack_[std::size(stack_) - 2]) +
+            std::get<double>(stack_[std::size(stack_) - 2]) /
             std::get<double>(stack_.back());
 
         stack_.pop_back();
@@ -152,6 +152,11 @@ public:
         ++i;
         break;
       }
+    }
+
+    if (!std::empty(stack_)) {
+      std::cerr << "stack overflow detected" << std::endl;
+      exit(EXIT_FAILURE);
     }
   }
 };
