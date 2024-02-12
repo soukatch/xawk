@@ -129,7 +129,6 @@ public:
           exit(EXIT_FAILURE);
         }
         globals_[std::get<std::string>(consts_[code_[i]])] = stack_.back();
-        stack_.pop_back();
         ++i;
         break;
       case to_byte(load_global__):
@@ -140,6 +139,16 @@ public:
           exit(EXIT_FAILURE);
         }
         stack_.push_back(globals_[std::get<std::string>(consts_[code_[i]])]);
+        ++i;
+        break;
+      case to_byte(store_global__):
+        ++i;
+        if (!globals_.contains(std::get<std::string>(consts_[code_[i]]))) {
+          std::cerr << "undefined identifier ";
+          code_gen::operator<<(std::cerr, consts_[code_[i]]) << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        globals_[std::get<std::string>(consts_[code_[i]])] = stack_.back();
         ++i;
         break;
       }

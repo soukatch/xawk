@@ -98,8 +98,14 @@ class parser final {
   }
 
   void iden(std::string_view name) {
-    code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
-                        code_gen::add_const(cp_, name.data()));
+    if (match(token_type::equal__)) {
+      expr();
+      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                          code_gen::add_const(cp_, name.data()));
+    } else {
+      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                          code_gen::add_const(cp_, name.data()));
+    }
   }
 
   void expr(int rbp = 0) {
