@@ -47,7 +47,7 @@ class parser final {
     }
   }
 
-  void nud(token t) {
+  void nud(token t, int rbp) {
     switch (t.type_) {
       using enum token_type;
     default:
@@ -69,7 +69,7 @@ class parser final {
       expr();
       expect(r_paren__);
     case iden__:
-      iden(t.lexeme_);
+      iden(t.lexeme_, rbp);
     }
   }
 
@@ -97,8 +97,12 @@ class parser final {
     }
   }
 
-  void iden(std::string_view name) {
+  void iden(std::string_view name, int rbp) {
     if (match(token_type::equal__)) {
+      if (rbp != 0) {
+        std::cerr << "cannot assign to rvalue" << std::endl;
+        exit(EXIT_FAILURE);
+      }
       expr();
       code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
                           code_gen::add_const(cp_, name.data()));
@@ -109,7 +113,7 @@ class parser final {
   }
 
   void expr(int rbp = 0) {
-    for (nud(next()); lbp(peek().type_) > rbp;)
+    for (nud(next(), rbp); lbp(peek().type_) > rbp;)
       led(next());
   }
 
