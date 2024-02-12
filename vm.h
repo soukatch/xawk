@@ -129,6 +129,7 @@ public:
           exit(EXIT_FAILURE);
         }
         globals_[std::get<std::string>(consts_[code_[i]])] = stack_.back();
+        stack_.pop_back();
         ++i;
         break;
       case to_byte(load_global__):
