@@ -3,6 +3,8 @@
 #include "code_gen.h"
 #include "lexer.h"
 
+#include <ranges>
+
 namespace xawk {
 class parser final {
   lexer lex_{""};
@@ -10,13 +12,17 @@ class parser final {
 
   code_gen::code_block cb_{};
   code_gen::const_pool cp_{};
+  std::vector<std::pair<std::string, uint8_t>> locals_{};
+  uint8_t scope_{};
 
   token peek() const noexcept { return curr_; }
 
   token next() noexcept { return std::exchange(curr_, lex_()); }
 
+  bool check(token_type type) const noexcept { return peek().type_ == type; }
+
   bool match(token_type type) noexcept {
-    if (peek().type_ == type) {
+    if (check(type)) {
       next();
       return true;
     }
@@ -98,76 +104,172 @@ class parser final {
   }
 
   void iden(std::string_view name, int rbp) {
+    auto resolve{[&, this]() -> int {
+      for (int i{}; auto &&[x, y] : std::ranges::views::reverse(locals_)) {
+        if (x == name)
+          return i;
+        ++i;
+      }
+      return -1;
+    }};
+
+    auto check_decl{[&, this]() -> bool {
+      for (int i{}; auto &&[x, y] : std::ranges::views::reverse(locals_)) {
+        if (y < scope_)
+          break;
+        if (x == name)
+          return false;
+      }
+      return true;
+    }};
+
     switch (peek().type_) {
       using enum token_type;
     default:
-      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
-                          code_gen::add_const(cp_, name.data()));
+      if (scope_ == 0) {
+        code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                            code_gen::add_const(cp_, name.data()));
+      } else {
+        const auto off{resolve()};
+
+        if (off == -1) {
+          std::cerr << "undefined symbol: " << name << std::endl;
+          exit(EXIT_FAILURE);
+        }
+
+        code_gen::gen_code2(cb_, code_gen::op_code::load__, off);
+        break;
+      }
       break;
     case equal__:
       if (rbp != 0) {
         std::cerr << "cannot assign to rvalue" << std::endl;
         exit(EXIT_FAILURE);
       }
+
       next();
-      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
-                          code_gen::add_const(cp_, name.data()));
       expr();
-      code_gen::gen_code(cb_, code_gen::op_code::add__);
-      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
-                          code_gen::add_const(cp_, name.data()));
+
+      if (scope_ == 0) {
+        code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                            code_gen::add_const(cp_, name.data()));
+      } else {
+        const auto off{resolve()};
+        if (off == -1) {
+          std::cerr << "undefined symbol: " << name << std::endl;
+          exit(EXIT_FAILURE);
+        }
+
+        code_gen::gen_code2(cb_, code_gen::op_code::store__, off);
+      }
       break;
     case plusequal__:
       if (rbp != 0) {
         std::cerr << "cannot assign to rvalue" << std::endl;
         exit(EXIT_FAILURE);
       }
+
       next();
-      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
-                          code_gen::add_const(cp_, name.data()));
-      expr();
-      code_gen::gen_code(cb_, code_gen::op_code::add__);
-      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
-                          code_gen::add_const(cp_, name.data()));
+
+      if (scope_ == 0) {
+        code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                            code_gen::add_const(cp_, name.data()));
+        expr();
+        code_gen::gen_code(cb_, code_gen::op_code::add__);
+        code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                            code_gen::add_const(cp_, name.data()));
+      } else {
+        const auto off{resolve()};
+        if (off == -1) {
+          std::cerr << "undefined symbol: " << name << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        code_gen::gen_code2(cb_, code_gen::op_code::load__, off);
+        expr();
+        code_gen::gen_code(cb_, code_gen::op_code::add__);
+        code_gen::gen_code2(cb_, code_gen::op_code::store__, off);
+      }
       break;
     case minusequal__:
       if (rbp != 0) {
         std::cerr << "cannot assign to rvalue" << std::endl;
         exit(EXIT_FAILURE);
       }
+
       next();
-      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
-                          code_gen::add_const(cp_, name.data()));
-      expr();
-      code_gen::gen_code(cb_, code_gen::op_code::sub__);
-      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
-                          code_gen::add_const(cp_, name.data()));
+
+      if (scope_ == 0) {
+        code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                            code_gen::add_const(cp_, name.data()));
+        expr();
+        code_gen::gen_code(cb_, code_gen::op_code::sub__);
+        code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                            code_gen::add_const(cp_, name.data()));
+      } else {
+        const auto off{resolve()};
+        if (off == -1) {
+          std::cerr << "undefined symbol: " << name << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        code_gen::gen_code2(cb_, code_gen::op_code::load__, off);
+        expr();
+        code_gen::gen_code(cb_, code_gen::op_code::sub__);
+        code_gen::gen_code2(cb_, code_gen::op_code::store__, off);
+      }
       break;
     case starequal__:
       if (rbp != 0) {
         std::cerr << "cannot assign to rvalue" << std::endl;
         exit(EXIT_FAILURE);
       }
+
       next();
-      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
-                          code_gen::add_const(cp_, name.data()));
-      expr();
-      code_gen::gen_code(cb_, code_gen::op_code::mult__);
-      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
-                          code_gen::add_const(cp_, name.data()));
+
+      if (scope_ == 0) {
+        code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                            code_gen::add_const(cp_, name.data()));
+        expr();
+        code_gen::gen_code(cb_, code_gen::op_code::mult__);
+        code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                            code_gen::add_const(cp_, name.data()));
+      } else {
+        const auto off{resolve()};
+        if (off == -1) {
+          std::cerr << "undefined symbol: " << name << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        code_gen::gen_code2(cb_, code_gen::op_code::load__, off);
+        expr();
+        code_gen::gen_code(cb_, code_gen::op_code::mult__);
+        code_gen::gen_code2(cb_, code_gen::op_code::store__, off);
+      }
       break;
     case slashequal__:
       if (rbp != 0) {
         std::cerr << "cannot assign to rvalue" << std::endl;
         exit(EXIT_FAILURE);
       }
+
       next();
-      code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
-                          code_gen::add_const(cp_, name.data()));
-      expr();
-      code_gen::gen_code(cb_, code_gen::op_code::div__);
-      code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
-                          code_gen::add_const(cp_, name.data()));
+
+      if (scope_ == 0) {
+        code_gen::gen_code2(cb_, code_gen::op_code::load_global__,
+                            code_gen::add_const(cp_, name.data()));
+        expr();
+        code_gen::gen_code(cb_, code_gen::op_code::div__);
+        code_gen::gen_code2(cb_, code_gen::op_code::store_global__,
+                            code_gen::add_const(cp_, name.data()));
+      } else {
+        const auto off{resolve()};
+        if (off == -1) {
+          std::cerr << "undefined symbol: " << name << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        code_gen::gen_code2(cb_, code_gen::op_code::load__, off);
+        expr();
+        code_gen::gen_code(cb_, code_gen::op_code::div__);
+        code_gen::gen_code2(cb_, code_gen::op_code::store__, off);
+      }
       break;
     }
   }
@@ -178,13 +280,32 @@ class parser final {
   }
 
   void stmt() {
-    const auto print_stmt{match(token_type::print__)};
-    expr();
-    expect(token_type::semi__);
-    if (print_stmt)
-      code_gen::gen_code(cb_, code_gen::op_code::print__);
-    else
+    const auto type{peek().type_};
+    switch (type) {
+      using enum token_type;
+    default:
+      expr();
+      expect(token_type::semi__);
       code_gen::gen_code(cb_, code_gen::op_code::pop__);
+      break;
+    case print__:
+      next();
+      expr();
+      expect(token_type::semi__);
+      code_gen::gen_code(cb_, code_gen::op_code::print__);
+      break;
+    case l_brace__:
+      next();
+      ++scope_;
+      for (; !check(token_type::eof__) && !check(token_type::r_brace__);)
+        decl();
+      for (; !std::empty(locals_) && locals_.back().second == scope_;
+           locals_.pop_back())
+        code_gen::gen_code(cb_, code_gen::op_code::pop__);
+      --scope_;
+      expect(token_type::r_brace__);
+      break;
+    }
   }
 
   void var_decl() {
@@ -193,8 +314,11 @@ class parser final {
     expect(token_type::equal__);
     expr();
     expect(token_type::semi__);
-    code_gen::gen_code2(cb_, code_gen::op_code::def_global__,
-                        code_gen::add_const(cp_, iden));
+    if (scope_ != 0)
+      locals_.emplace_back(iden, scope_);
+    else
+      code_gen::gen_code2(cb_, code_gen::op_code::def_global__,
+                          code_gen::add_const(cp_, iden));
   }
 
   void decl() {

@@ -38,6 +38,12 @@ void disassemble(const code_gen::code_block &cb) {
     case code_gen::to_byte(code_gen::op_code::store_global__):
       std::cout << "store_global__ " << std::to_string(cb[i++]) << std::endl;
       break;
+    case code_gen::to_byte(code_gen::op_code::load__):
+      std::cout << "load__ " << std::to_string(cb[i++]) << std::endl;
+      break;
+    case code_gen::to_byte(code_gen::op_code::store__):
+      std::cout << "store__ " << std::to_string(cb[i++]) << std::endl;
+      break;
     }
     return i;
   }};

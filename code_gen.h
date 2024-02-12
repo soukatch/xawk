@@ -28,6 +28,8 @@ enum op_code {
   def_global__,
   load_global__,
   store_global__,
+  load__,
+  store__
 };
 
 auto to_byte{[](code_gen::op_code o) constexpr noexcept -> uint8_t {

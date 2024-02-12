@@ -152,6 +152,15 @@ public:
         globals_[std::get<std::string>(consts_[code_[i]])] = stack_.back();
         ++i;
         break;
+      case to_byte(load__):
+        ++i;
+        stack_.push_back(stack_[code_[i]]);
+        ++i;
+        break;
+      case to_byte(store__):
+        ++i;
+        stack_[code_[i]] = stack_.back();
+        ++i;
       }
     }
 
