@@ -1,5 +1,7 @@
 # XAWK (eXtended AWK)
 
+NOTE: I'm putting this bytecode interpreter on hold while I work on another compiler: [cawk](github.com/soukatch/cawk)
+
 XAWK is an extension to the AWK programming language, originally developed by Aho, Weinberger, and Kernighan at Bell Labs in 1977. Since AWK (in my humble opinion) is already a well designed, useful, and powerful language, the goal is not to create an alternative, but rather add some features that I think would further the functionality, including:
 
 * Explicit variable declaration.
